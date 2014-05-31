@@ -6,7 +6,8 @@ class mercadoBitcoin
     private static $codigoChave;
     private static $pin;
     private static $certificado;
-    private static $apiList;
+    private static $apiPrivada;
+    private static $apiPublica;
     private static $baseUrl;
 
     public function __construct($chave, $codigoChave, $pin, $temTeuServidorCertificado = false)
@@ -15,16 +16,10 @@ class mercadoBitcoin
         $this->pin = $pin;
         $this->codigoChave = $codigoChave;
         $this->certificado = (bool)$temTeuServidorCertificado;
-        $this->baseUrl = "https://www.mercadobitcoin.com.br/tapi/";
-        $this->version = "v. beta 0.1";
-        $this->apiList = Array("getInfo", "OrderList", "Trade", "CancelOrder");
-        
-        /*
-        getInfo:     retorna as informações de saldo da conta do usuário.
-        OrderList:   retorna uma lista das ordens do usuário por moeda, tipo, data e status.
-        Trade:       cria uma ordem de compra ou venda do par escolhido: BTC/BRL ou LTC/BRL.
-        CancelOrder: cancela ordens em aberto do usuário.
-    */
+        $this->baseUrl = "https://www.mercadobitcoin.com.br/";
+        $this->version = "v. beta 0.2";
+        $this->apiPrivada = Array("getInfo", "OrderList", "Trade", "CancelOrder");
+        $this->apiPublica = Array("ticker", "orderbook", "trades", "ticker_litecoin", "orderbook_litecoin", "trades_litecoin");
       }
 
     private function nonce()
@@ -41,7 +36,7 @@ class mercadoBitcoin
      
     private function callApi($api, $params = Array())
       {
-        foreach($this->apiList as $value)
+        foreach($this->apiPrivada as $value)
           {
             if($api == $value)
               {
@@ -52,13 +47,20 @@ class mercadoBitcoin
                 $header[] = "Key: "  . $this->chave;
                 $params["method"] = $value;
                 $params["tonce"]  = $this->nonce;
-                return $this->doRequest($header, $params);
+                return $this->doRequest("POST", $params, $header);
+              }
+          }
+        foreach($this->apiPublica as $value)
+          {
+            if($api == $value)
+              { 
+                return $this->doRequest("GET", Array("method" => $value));
               }
           }
         return false;
       }
     
-    private function doRequest($header, $params)
+    private function doRequest($metodo, $params, $header = Array())
       {
         foreach(array_keys($params) as $key)
           {
@@ -67,16 +69,23 @@ class mercadoBitcoin
         $postFields = http_build_query($params);
         $ch = curl_init();
         $options = Array(
-                          CURLOPT_URL            => $this->baseUrl,
-                          CURLOPT_POST           => true,
                           CURLOPT_HEADER         => false,
-                          CURLOPT_HTTPHEADER     => $header,
                           CURLOPT_USERAGENT      => urlencode('Módulo de API Mercado Bitcoin em PHP ' . $this->version),
-                          CURLOPT_POSTFIELDS     => $postFields,
                           CURLOPT_RETURNTRANSFER => true,
                           CURLOPT_SSL_VERIFYPEER => $this->certificate, 
                           CURLOPT_SSL_VERIFYHOST => $this->certificate
                         );
+        if($metodo == "POST")
+          {
+            $options[CURLOPT_URL]  = $this->baseUrl . "tapi/";
+            $options[CURLOPT_POST] = true;
+            $options[CURLOPT_HTTPHEADER] = $header;
+            $options[CURLOPT_POSTFIELDS] = $postFields;
+          }
+        else
+          {
+            $options[CURLOPT_URL] = $this->baseUrl . "api/" . $params["method"] . "/";
+          }
         curl_setopt_array($ch, $options);
         $response = curl_exec($ch);
         $status   = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -106,9 +115,10 @@ class mercadoBitcoin
           }
         return $return;
       }
-    
+    /*#########################APIs Privadas########################################*/
     /**
      * POST https://www.mercadobitcoin.com.br/tapi/
+     * retorna as informações de saldo da conta do usuário.
      * @return array JSON results
      *  success: indicador de sucesso da requisição. Retorna 1 se requisição bem sucedida.
      *  return: vetor de dados de retorno deste método.
@@ -123,6 +133,7 @@ class mercadoBitcoin
       
     /**
      * POST https://www.mercadobitcoin.com.br/tapi/
+     * retorna uma lista das ordens do usuário por moeda, tipo, data e status.
      * @param string $pair
      *  pair: (obrigatório) par da ordem: 'btc_brl' para ordens de compra ou venda de Bitcoins
      *  e 'ltc_brl' para ordens de compra e venda de Litecoins.
@@ -174,6 +185,7 @@ class mercadoBitcoin
       
     /**
      * POST https://www.mercadobitcoin.com.br/tapi/
+     * cria uma ordem de compra ou venda do par escolhido: BTC/BRL ou LTC/BRL.
      * @param string $pair
      *   pair: Obrigatório. Par da ordem: 'btc_brl' para ordens de compra ou venda de Bitcoins
      *   e 'ltc_brl' para ordens de compra e venda de Litecoins.
@@ -213,6 +225,7 @@ class mercadoBitcoin
     
     /**
      * POST https://www.mercadobitcoin.com.br/tapi/
+     * cancela ordens em aberto do usuário.
      * @param string $pair
      *   pair: Obrigatório. Par da ordem: 'btc_brl' para ordens de compra ou venda de Bitcoins
      *   e 'ltc_brl' para ordens de compra e venda de Litecoins.
@@ -243,5 +256,60 @@ class mercadoBitcoin
                                     )
                              );
       }
-  }     
+      
+    /*#########################APIs Públicas######################################*/ 
+    /**
+     * GET https://www.mercadobitcoin.com.br/api/ticker/
+     * retorna o ticker de preço do Bitcoin.
+     */
+    public function ticker()
+      { 
+        return $this->callApi(__FUNCTION__);
+      }
+      
+    /**
+     * GET https://www.mercadobitcoin.com.br/api/orderbook/
+     * retorna as ofertas de compra e venda de Bitcoin.
+     */ 
+    public function orderbook()
+      {
+        return $this->callApi(__FUNCTION__);
+      }
+      
+    /**
+     * GET https://www.mercadobitcoin.com.br/api/trades/
+     * retorna as negociações ou operações realizadas de Bitcoin.
+     */
+    public function trades()
+      {
+        return $this->callApi(__FUNCTION__);
+      }
+      
+    /**
+     * GET https://www.mercadobitcoin.com.br/api/ticker_litecoin/
+     * retorna o ticker de preço do Litecoin.
+     */
+    public function ticker_litecoin()
+      {
+        return $this->callApi(__FUNCTION__);
+      }
+    
+    /**
+     * GET https://www.mercadobitcoin.com.br/api/orderbook_litecoin/
+     * retorna as ofertas de compra e venda de Litecoin.
+     */
+    public function orderbook_litecoin()
+      {
+        return $this->callApi(__FUNCTION__);
+      }
+    
+    /**
+     * GET https://www.mercadobitcoin.com.br/api/trades_litecoin/
+     * retorna as negociações ou operações realizadas de Litecoin.
+     */
+    public function trades_litecoin()
+      {
+        return $this->callApi(__FUNCTION__);
+      }
+  }
 ?>
