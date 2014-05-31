@@ -198,7 +198,7 @@ class mercadoBitcoin
              rate: taxa em percentual aplicada nesta operação.
              created: timestamp operaçao.
      */
-    public function Trade($pair, $type, $volue, $price)
+    public function Trade($pair, $type, $volume, $price)
       {
         return $this->callApi(
                                __FUNCTION__,
