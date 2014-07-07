@@ -99,6 +99,8 @@ class mercadoBitcoin
             /* Debug */
             var_dump($response);
             var_dump($status);
+            echo "\nHTTP Status: " . $status . "\n";
+            exit(0)
           }
         return false;
       }
